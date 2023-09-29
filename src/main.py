@@ -5,9 +5,11 @@ from extract_ee_data import extract_ee_data
 from dineof_to_tif import dineof_to_tif
 from tif_to_eecollection import cogs_to_collection
 from dineof_runner import exec_dineof
-from config import config
+from ee_auth import ee_initialize
 
-def run_job(start_time, end_time, variable, out_collection, min_modes=15, max_modes=25):
+def run_job(project, start_time, end_time, variable, out_collection, min_modes=15, max_modes=25):
+
+    ee_initialize(project)
 
     # outuri = f'{config.BUCKET}/dineof_staging/dineof_in_{variable}.nc'
     outuri = f'dineof_in_{variable}.nc'

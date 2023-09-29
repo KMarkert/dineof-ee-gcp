@@ -6,32 +6,10 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 import ee
-import google.auth
 from google.cloud import storage
 from google.auth.transport.requests import AuthorizedSession
 
-
-
-def get_ee_credentials():
-    credentials, project = google.auth.default(
-        scopes=[
-            "https://www.googleapis.com/auth/cloud-platform",
-            "https://www.googleapis.com/auth/earthengine",
-        ]
-    )
-
-    return credentials
-
-
-def ee_initialize(project):
-    credentials = get_ee_credentials()
-    ee.Initialize(
-        credentials.with_quota_project(None),
-        project=project,
-        opt_url='https://earthengine-highvolume.googleapis.com',
-    )
-    
-    return
+from ee_auth import get_ee_credentials
 
 def validate_ee_out_collection(project, collection):
     ee_initialize(project)

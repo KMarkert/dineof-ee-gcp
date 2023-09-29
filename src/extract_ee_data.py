@@ -8,12 +8,9 @@ import xarray as xr
 import logging
 import fsspec
 
-from config import config
 
-credentials, project_id = google.auth.default()
-ee.Initialize(credentials, project=config.EE_PROJECT)
-
-def get_geo_info(region, crs, scale):
+def get_geo_info(project, region, crs, scale):
+    
     coords = region.coordinates().getInfo()
     # upper left point
     ul_pt = coords[0][3]
@@ -94,29 +91,6 @@ def filter_poor_observations(da, threshold=0.05):
     return da.sel(time=keep_dates)
 
 
-def mask_cicyano(img):
-    return img.updateMask(img.lt(250))
-
-
-def get_cicyano(start_time, end_time, region):
-    olci_a = (
-        ee.ImageCollection("projects/ce-datasets/assets/ce-noaa-nccos-hab/sentinel-3a")
-        .filterDate(start_time, end_time)
-        .filterBounds(region)
-    )
-            
-    olci_b = (
-        ee.ImageCollection("projects/ce-datasets/assets/ce-noaa-nccos-hab/sentinel-3b")
-        .filterDate(start_time, end_time)
-        .filterBounds(region)
-    )
-
-    return (
-        olci_a.merge(olci_b)
-        .map(mask_cicyano)
-        .select('cicyano')
-    )
-
 def extract_bits(image, start, end=None, new_name=None):
     """Function to convert qa bits to binary flag image
 
@@ -176,13 +150,10 @@ def get_data_tile(region, start_time, end_time, collection='cicyano', crs="EPSG:
             .set('system:time_start', date.millis())
         )
 
-    if collection not in ['cicyano', 'sst']:
+    if collection not in ['sst']:
         raise NotImplementedError('available options for ')
 
-    if collection == 'cicyano':
-        dataset = get_cicyano(start_time, end_time, region)
-
-    elif collection == 'sst':
+    if collection == 'sst':
         dataset = get_sst(start_time, end_time, region)
 
     dates = (
