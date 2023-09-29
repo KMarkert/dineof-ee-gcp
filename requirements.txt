@@ -1,0 +1,11 @@
+numpy
+xarray
+rioxarray
+fsspec
+gcsfs
+netcdf4
+scipy
+earthengine-api
+google-cloud
+google-cloud-storage
+chevron
