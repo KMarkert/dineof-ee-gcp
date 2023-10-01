@@ -1,0 +1,15 @@
+OUTPUT_BUCKET: "gs://dineof-out-xyz/"
+PROJECT: "ee-direct-test"
+
+REGION: "-85.5, 22.0, -75.5, 30.0"
+STARTTIME: "2016-01-01"
+ENDTIME: "2017-01-01"
+BAND: "sst"
+
+#formatted as the path after projects/<PROJECT>/assets/
+OUTCOLLECTION: 'dineof_cloud_run_demo2'
+
+# optional environment variables for DINEOF process
+MINMODES: '10'
+MAXMODES: '20'
+
