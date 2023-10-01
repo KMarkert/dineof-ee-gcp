@@ -12,7 +12,6 @@ from google.auth.transport.requests import AuthorizedSession
 from ee_auth import get_ee_credentials
 
 def validate_ee_out_collection(project, collection):
-    ee_initialize(project)
 
     collection_asset = f'projects/{project}/assets/{collection}'
     

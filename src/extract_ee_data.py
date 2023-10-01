@@ -3,13 +3,14 @@ import io
 import math
 import google.auth
 import numpy as np
+import pandas as pd
 import xarray as xr
 # import apache_beam as beam
 import logging
 import fsspec
 
 
-def get_geo_info(project, region, crs, scale):
+def get_geo_info(region, crs, scale):
     
     coords = region.coordinates().getInfo()
     # upper left point
@@ -51,8 +52,11 @@ def get_geo_info(project, region, crs, scale):
 
 def get_land_mask(region, crs, scale):
     land_mask = (
-        ee.Image('projects/sfwmd-gee-dev-gis/assets/ML/LakeO_Mask')
+        ee.Image('MODIS/MOD44W/MOD44W_005_2000_02_24')
+        .select('water_mask')
+        .unmask(1)
     )
+
     x_coords, y_coords, grid = get_geo_info(region, crs, scale)
     request = {
             'expression': land_mask,
@@ -91,55 +95,7 @@ def filter_poor_observations(da, threshold=0.05):
     return da.sel(time=keep_dates)
 
 
-def extract_bits(image, start, end=None, new_name=None):
-    """Function to convert qa bits to binary flag image
-
-    args:
-        image (ee.Image): qa image to extract bit from
-        start (int): starting bit for flag
-        end (int | None, optional): ending bit for flag, if None then will only use start bit. default = None
-        new_name (str | None, optional): output name of resulting image, if None name will be {start}Bits. default = None
-
-    returns:
-        ee.Image: image with extract bits
-    """
-
-    newname = new_name if new_name is not None else f"{start}_bits"
-
-    if (start == end) or (end is None):
-        # perform a bit shift with bitwiseAnd
-        return image.select([0], [newname]).bitwiseAnd(1 << start)
-    else:
-        # Compute the bits we need to extract.
-        pattern = 0
-        for i in range(start, end):
-            pattern += int(math.pow(2, i))
-
-        # Return a single band image of the extracted QA bits, giving the band
-        # a new name.
-        return image.select([0], [newname]).bitwiseAnd(pattern).rightShift(start)
-
-
-def preprocess_sst(image):
-    qa_band = image.select("QC_Day")
-
-    mask = extract_bits(qa_band, start=2, end=3).eq(0)
-
-    return image.multiply(0.02).subtract(273.15).updateMask(mask).copyProperties(image,["system:time_start"])
-
-
-def get_sst(start_time, end_time, region):
-    # NOTE: using Aqua LST product with 1:30PM local equatorial overpass
-    return (
-        ee.ImageCollection("MODIS/061/MYD11A1") 
-        .filterDate(start_time, end_time)
-        .filterBounds(region)
-        .map(preprocess_sst)
-        .select(["LST_Day_1km"],['sst'])
-    )
-
-
-def get_data_tile(region, start_time, end_time, collection='cicyano', crs="EPSG:4326", scale=1000, date_chunks=5):
+def get_data_tile(region, start_time, end_time, band='sst', crs="EPSG:4326", scale=None, date_chunks=5):
     def daily_mosaic(date):
         date = ee.Date(date)
         return (
@@ -150,11 +106,16 @@ def get_data_tile(region, start_time, end_time, collection='cicyano', crs="EPSG:
             .set('system:time_start', date.millis())
         )
 
-    if collection not in ['sst']:
-        raise NotImplementedError('available options for ')
+    # NOTE: using Aqua LST product with 1:30PM local equatorial overpass
+    dataset = (
+        ee.ImageCollection('NASA/OCEANDATA/MODIS-Aqua/L3SMI') 
+        .filterDate(start_time, end_time)
+        .filterBounds(region)
+        .select(band)
+    )
 
-    if collection == 'sst':
-        dataset = get_sst(start_time, end_time, region)
+    if scale is None:
+        scale = dataset.first().projection().nominalScale().getInfo()
 
     dates = (
         dataset.aggregate_array('system:time_start')
@@ -200,10 +161,10 @@ def get_data_tile(region, start_time, end_time, collection='cicyano', crs="EPSG:
             coords=dict(
                 x=(["x",], x_coords),
                 y=(["y",], y_coords),
-                time=np.array(batch, dtype=np.datetime64),
+                time=pd.to_datetime(batch),
                 reference_time=ref_date,
             ),
-            name = collection,
+            name = band,
         )
         da.attrs = dict(_FillValue = -999)
         da.x.attrs = dict(units = "degrees_east", long_name = "Longitude")
@@ -215,18 +176,18 @@ def get_data_tile(region, start_time, end_time, collection='cicyano', crs="EPSG:
 
     out_ds = xr.concat(tile_batches, dim="time")
     out_ds = out_ds.sortby("time")
-    out_ds = filter_poor_observations(out_ds, threshold=0.02)
+    out_ds = filter_poor_observations(out_ds, threshold=0.05)
 
     out_ds = xr.merge([out_ds, land_da])
 
     return out_ds
 
-def extract_ee_data(outpath, region, start_time, end_time, collection='cicyano', crs="EPSG:4326", scale=300, date_chunks=50):
+def extract_ee_data(outpath, region, start_time, end_time, band='sst', crs="EPSG:4326", scale=300, date_chunks=50):
 
     if not isinstance(region, ee.Geometry):
         region = ee.Geometry.Rectangle(region)
     
-    da = get_data_tile(region, start_time, end_time, collection=collection, scale=scale, date_chunks=date_chunks)
+    da = get_data_tile(region, start_time, end_time, band=band, scale=scale, date_chunks=date_chunks)
     print(da)
 
     # with fsspec.open(outpath, 'w') as f:

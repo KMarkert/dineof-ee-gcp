@@ -20,7 +20,6 @@ def netcdf_to_tif(da, outbucket, outprefix='dineof_out', dim='time', dim_labels=
       da.isel(**{dim: i}).rio.to_raster(
           f,
           driver="COG",  # set the driver to be Cloud-Optimized GeoTIFF
-          tiled=True, # GDAL: By default striped TIFF files are created. This option can be used to force creation of tiled TIFF files.
           windowed=False,  # rioxarray: read & write one window at a time,
           overviews='auto',  # auto generate internal overviews if not available
           blocksize=256,  # set size of tiles to 256x256
