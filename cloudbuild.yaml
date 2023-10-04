@@ -1,4 +1,4 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: [ 'build', '-t', '${REGION}-docker.pkg.dev/sfwmd-sandbox/dineof-process/dineof-runner', '.' ]
-images: ['${REGION}-docker.pkg.dev/sfwmd-sandbox/dineof-process/dineof-runner']
+  args: [ 'build', '-t', 'REGION-docker.pkg.dev/PROJECT/dineof-process/dineof-runner', '.' ]
+images: ['REGION-docker.pkg.dev/PROJECT/dineof-process/dineof-runner']
