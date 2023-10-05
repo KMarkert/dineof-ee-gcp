@@ -22,10 +22,10 @@ def get_geo_info(region, crs, scale):
 
     # Get scales out of the transform.
     scale_x = proj['transform'][0]
-    scale_y = -proj['transform'][4]
+    scale_y = proj['transform'][4]
 
     x_coords = np.arange(ul_pt[0], lr_pt[0], scale_x)
-    y_coords = np.arange(ul_pt[1], lr_pt[1], scale_y)
+    y_coords = np.arange(lr_pt[1], ul_pt[1], scale_y)[::-1]
 
     # adjust the coordinates to center of the pixel
     # netcdf convention is to have the coordinates at the center of the pixel
@@ -42,7 +42,7 @@ def get_geo_info(region, crs, scale):
             'shearX': 0,
             'translateX': ul_pt[0],
             'shearY': 0,
-            'scaleY': scale_y,
+            'scaleY': -scale_y,
             'translateY': ul_pt[1]
         },
         'crsCode': proj['crs'],
@@ -93,6 +93,18 @@ def filter_poor_observations(da, threshold=0.05):
     y = x / (da.shape[1] * da.shape[2])
     keep_dates = y.where(y > threshold).dropna(dim="time").time
     return da.sel(time=keep_dates)
+
+
+@retry(tries=6, delay=1, backoff=3)
+def ee_request(request_body):
+    response = ee.data.computePixels(request_body)
+    return (
+            np.load(io.BytesIO(response))
+            .view(np.float32)
+            # .astype(np.float32)
+            .reshape(len(y_coords), len(x_coords), len(batch))
+            .transpose(2, 0, 1)
+        )
 
 
 def get_data_tile(region, start_time, end_time, band='sst', crs="EPSG:4326", scale=None, date_chunks=5):
@@ -146,14 +158,7 @@ def get_data_tile(region, start_time, end_time, band='sst', crs="EPSG:4326", sca
             'grid': grid
         }
 
-        response = ee.data.computePixels(batch_request)
-        data = (
-            np.load(io.BytesIO(response))
-            .view(np.float32)
-            # .astype(np.float32)
-            .reshape(len(y_coords), len(x_coords), len(batch))
-            .transpose(2, 0, 1)
-        )
+        data = ee_request(batch_request)
 
         da = xr.DataArray(
             data=data,
