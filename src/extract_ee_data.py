@@ -22,10 +22,10 @@ def get_geo_info(region, crs, scale):
 
     # Get scales out of the transform.
     scale_x = proj['transform'][0]
-    scale_y = proj['transform'][4]
+    scale_y = -proj['transform'][4]
 
     x_coords = np.arange(ul_pt[0], lr_pt[0], scale_x)
-    y_coords = np.arange(lr_pt[1], ul_pt[1], scale_y)[::-1]
+    y_coords = np.arange(ul_pt[1], lr_pt[1], scale_y)
 
     # adjust the coordinates to center of the pixel
     # netcdf convention is to have the coordinates at the center of the pixel
@@ -42,7 +42,7 @@ def get_geo_info(region, crs, scale):
             'shearX': 0,
             'translateX': ul_pt[0],
             'shearY': 0,
-            'scaleY': -scale_y,
+            'scaleY': scale_y,
             'translateY': ul_pt[1]
         },
         'crsCode': proj['crs'],
