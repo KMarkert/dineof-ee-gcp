@@ -98,13 +98,7 @@ def filter_poor_observations(da, threshold=0.05):
 @retry(tries=6, delay=1, backoff=3)
 def ee_request(request_body):
     response = ee.data.computePixels(request_body)
-    return (
-            np.load(io.BytesIO(response))
-            .view(np.float32)
-            # .astype(np.float32)
-            .reshape(len(y_coords), len(x_coords), len(batch))
-            .transpose(2, 0, 1)
-        )
+    return np.load(io.BytesIO(response)) 
 
 
 def get_data_tile(region, start_time, end_time, band='sst', crs="EPSG:4326", scale=None, date_chunks=5):
@@ -159,6 +153,12 @@ def get_data_tile(region, start_time, end_time, band='sst', crs="EPSG:4326", sca
         }
 
         data = ee_request(batch_request)
+        data = (
+            data
+            .view(np.float32)
+            .reshape(len(y_coords), len(x_coords), len(batch))
+            .transpose(2, 0, 1)
+        )
 
         da = xr.DataArray(
             data=data,
